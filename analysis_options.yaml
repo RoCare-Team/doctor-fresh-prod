@@ -1,0 +1,17 @@
+# No lint package is pulled in (the app uses the Flutter SDK alone), so the
+# rules are listed here directly.
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+  language:
+    strict-casts: false
+
+linter:
+  rules:
+    - avoid_print
+    - prefer_const_constructors
+    - prefer_final_fields
+    - unnecessary_const
+    - use_build_context_synchronously
