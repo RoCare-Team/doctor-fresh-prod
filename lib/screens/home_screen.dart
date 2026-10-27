@@ -7,6 +7,7 @@ import '../core/api.dart';
 import '../core/format.dart';
 import '../core/models.dart';
 import '../core/native.dart';
+import '../core/purifier.dart';
 import '../core/theme.dart';
 import '../router.dart';
 import '../state/app_state.dart';
@@ -15,6 +16,7 @@ import '../widgets/product_card.dart';
 import '../widgets/shell.dart';
 import '../widgets/ui.dart';
 import '../widgets/skeleton.dart';
+import 'purifier_screen.dart';
 import 'product_screen.dart';
 import 'offers_tab.dart';
 
@@ -93,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         _Banners(offers: _offers),
                         _CategoryCircles(tiles: mapsOf((data!['hero'] as Map?)?['tiles'])),
                         const _QuickServices(),
+                        const _PurifierCard(),
                         _Deals(products: _products('deals')),
                         for (final rail in mapsOf(data!['rails']))
                           ProductRail(
@@ -677,6 +680,80 @@ class _QuickServices extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/* ------------------------------------------------------------ my purifier */
+
+/// The customer's own purifier: its filter health when added, an invitation
+/// to add it when not.
+class _PurifierCard extends StatelessWidget {
+  const _PurifierCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Purifier?>(
+      valueListenable: PurifierStore.instance.current,
+      builder: (context, p, _) {
+        final days = p == null ? 0 : Purifier.daysUntil(p.nextService);
+        final left = p?.serviceLeft ?? 0;
+        final tone = left > 0.35
+            ? DF.success
+            : left > 0.1
+                ? DF.warning
+                : DF.danger;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => AppRouter.push(context, const PurifierScreen()),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(color: DF.primary50, borderRadius: BorderRadius.circular(14)),
+                      child: const Icon(Icons.water_drop_rounded, color: DF.primary700),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(p == null ? 'Track my purifier' : 'My ${p.brand.isEmpty ? 'purifier' : p.brand}',
+                              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: DF.ink900)),
+                          const SizedBox(height: 3),
+                          if (p == null)
+                            const Text('Filter health and service reminders', style: TextStyle(fontSize: 12.5, color: DF.ink400))
+                          else ...[
+                            Text(
+                              days < 0 ? 'Service overdue by ${-days} days' : days == 0 ? 'Service due today' : 'Next service in $days days',
+                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: days <= 3 ? DF.danger : DF.ink500),
+                            ),
+                            const SizedBox(height: 6),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(value: left, minHeight: 5, color: tone, backgroundColor: DF.line),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(p == null ? Icons.add_circle_outline_rounded : Icons.chevron_right_rounded, color: DF.primary600),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,6 +1,15 @@
 # Doctor Fresh — Flutter mobile app
 
-The Android and iOS app for the doctorfresh.in storefront. It follows the website's flow, texts and colours, laid out as a native shopping app: a bottom tab bar, compact app bars, card-based screens, and a buy bar that stays on the product page. It talks to the same backend: the website's own `/api/*` endpoints.
+The Doctor Fresh app for Android and iOS: shop water purifiers and spares, book a technician, and look after the purifier at home.
+
+What the app does beyond the shop:
+
+- **My purifier** (`lib/screens/purifier_screen.dart`, `lib/core/purifier.dart`): the customer adds their purifier once; the app shows filter and service health as rings, keeps a service history on the phone, and schedules local notifications three days before a service or filter change is due. Tapping one opens the purifier screen.
+- **Water check** (`lib/screens/water_check_screen.dart`): a TDS guide that recommends the purification the customer's water needs.
+- **Secure in-app payment**: on iOS the Easebuzz page opens on an `SFSafariViewController` sheet inside the app, and the order is checked as soon as it closes.
+- Haptic feedback, native date pickers, share sheet, document picker, location, PDF preview.
+
+Catalogue, orders and bookings come from the Doctor Fresh backend (`/api/*`).
 
 **No third-party packages.** `pubspec.yaml` lists only the Flutter SDK. Everything usually done with a plugin is written by hand:
 
@@ -9,7 +18,7 @@ The Android and iOS app for the doctorfresh.in storefront. It follows the websit
 | HTTP + session cookie | `dart:io` `HttpClient`, with the `df_session` cookie kept manually (`lib/core/api.dart`) |
 | Local storage (cart, pin code, cookies) | A JSON file in the app's private folder (`lib/core/storage.dart`) |
 | Rich text (product descriptions, blogs, policies) | A small HTML renderer (`lib/widgets/html_view.dart`) |
-| Open links, call, WhatsApp, mail, share, open PDF, pick a file, current location | Platform channel `in.doctorfresh.app/native` (`lib/core/native.dart`), implemented in `android/.../MainActivity.kt` + `DfFileProvider.kt` and `ios/Runner/AppDelegate.swift` |
+| Open links, call, WhatsApp, mail, share, open PDF, pick a file, current location, in-app payment sheet, local reminders | Platform channel `in.doctorfresh.app/native` (`lib/core/native.dart`), implemented in `android/.../MainActivity.kt` + `DfFileProvider.kt` + `Reminders.kt` and `ios/Runner/AppDelegate.swift` |
 
 ## Run it
 
@@ -41,7 +50,7 @@ flutter build ipa                # on a Mac, after setting the team in Xcode
 
 Identifiers: Android `applicationId` / iOS bundle id is `in.doctorfresh.doctor_fresh`, and the display name is "Doctor Fresh".
 
-Before publishing to the stores, set up release signing (Android `key.properties` and a keystore; iOS signing team). Also replace the launcher icons with a high-resolution logo: the current icons are generated from the site's 192 px favicon.
+Before publishing to the stores, set up release signing (Android `key.properties` and a keystore; iOS signing team). Use a high-resolution 1024 px logo for the launcher icons.
 
 ## Project layout
 
@@ -119,5 +128,6 @@ All of these live in the Next.js project under `app/api/`.
 - **Font.** The website uses the Inter web font. The app uses the platform font (Roboto on Android, SF on iOS), because no font files are bundled. To match exactly, add the Inter `.ttf` files under `assets/fonts/` and declare them in `pubspec.yaml`.
 - **Payment and videos.** Payment pages and demo videos open in the browser or the YouTube app, not inside the app.
 - **Location.** The app asks for location permission when it opens and shows the customer's area and pin code at the top of Home (native `location` method → the site's `/api/geo/reverse`). Tapping it looks again. The checkout form still fills city and state from the pin code; it does not use GPS.
-#   d o c t o r - f r e s h - p r o d  
+#   d o c t o r - f r e s h - p r o d 
+ 
  

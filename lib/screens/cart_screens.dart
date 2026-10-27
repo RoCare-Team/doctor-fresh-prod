@@ -579,7 +579,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> with WidgetsBindingObse
         pendingRedirect = redirect;
         payState = 'waiting';
       });
-      await Native.open(redirect, context: context);
+      // On iOS the gateway opens on a sheet inside the app; once it is
+      // closed the order is checked straight away.
+      await Native.openInApp(redirect, context: context);
+      if (Native.inAppSheets && mounted) await _checkPayment();
       return;
     }
 
@@ -1165,7 +1168,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with WidgetsBindingObse
           Text(
             failed
                 ? 'We have not received the payment for this order yet. You can pay again, or check once more if you just paid.'
-                : 'Complete the payment in your browser, then come back to the app. Your order is confirmed as soon as the payment is received.',
+                : 'Complete the payment on the secure payment page. Your order is confirmed as soon as the payment is received.',
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13, color: DF.ink400, height: 1.45),
           ),
@@ -1175,7 +1178,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> with WidgetsBindingObse
                   ? null
                   : () {
                       setState(() => payState = 'waiting');
-                      Native.open(pendingRedirect, context: context);
+                      Native.openInApp(pendingRedirect, context: context).then((_) {
+                        if (Native.inAppSheets && mounted) _checkPayment();
+                      });
                     }),
           const SizedBox(height: 10),
           OutlineButton(failed ? 'Check again' : 'I have paid', onPressed: checking ? null : _checkPayment),

@@ -4,6 +4,9 @@
     <!-- The home screen shows where the customer is (asked when the app opens). -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- Purifier service and filter-change reminders (Reminders.kt). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="Doctor Fresh"
         android:name="${applicationName}"
@@ -36,6 +39,13 @@
             android:authorities="${applicationId}.files"
             android:exported="false"
             android:grantUriPermissions="true"/>
+        <!-- Posts a reminder when its alarm goes off, and sets them again after a reboot. -->
+        <receiver android:name=".ReminderReceiver" android:exported="false"/>
+        <receiver android:name=".BootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

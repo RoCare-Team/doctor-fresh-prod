@@ -169,7 +169,7 @@ class _QuotationFormState extends State<_QuotationForm> {
       done = res.ok;
       error = res.ok ? null : res.error;
     });
-    if (res.ok) Native.open(Config.url('/api/brochure/${widget.productId}'));
+    if (res.ok) Native.openInApp(Config.url('/api/brochure/${widget.productId}'));
   }
 
   @override
@@ -181,7 +181,7 @@ class _QuotationFormState extends State<_QuotationForm> {
           const SuccessNote('Thank you — the brochure is downloading and our team will send you a quotation.'),
           const SizedBox(height: 12),
           OutlineButton('Download Brochure again',
-              icon: Icons.download, onPressed: () => Native.open(Config.url('/api/brochure/${widget.productId}'))),
+              icon: Icons.download, onPressed: () => Native.openInApp(Config.url('/api/brochure/${widget.productId}'))),
         ],
       );
     }

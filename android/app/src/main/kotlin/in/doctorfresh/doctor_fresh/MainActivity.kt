@@ -28,6 +28,10 @@ import java.io.File
  *   pickFile                  → a document picker; the file is copied to the cache
  *   location                  → asks for location permission, then the phone's
  *                               position { lat, lon } or { error: denied | off | unavailable }
+ *   openInApp                 → false: links open in the browser on Android
+ *   requestNotifications      → asks to post notifications (Android 13+)
+ *   schedule / cancel         → local reminders (Reminders.kt)
+ *   takeLaunchRoute           → the screen a tapped reminder asked for, once
  */
 class MainActivity : FlutterActivity() {
     private val channelName = "in.doctorfresh.app/native"
@@ -35,16 +39,55 @@ class MainActivity : FlutterActivity() {
     private var pendingPick: MethodChannel.Result? = null
     private val locationRequest = 4343
     private var pendingLocation: MethodChannel.Result? = null
+    private val notifyRequest = 4444
+    private var pendingNotify: MethodChannel.Result? = null
+    private var channel: MethodChannel? = null
+    private var launchRoute: String? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        launchRoute = intent?.getStringExtra(Reminders.EXTRA_ROUTE)?.takeIf { it.isNotEmpty() }
+    }
+
+    /** A reminder tapped while the app is open. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val route = intent.getStringExtra(Reminders.EXTRA_ROUTE)?.takeIf { it.isNotEmpty() } ?: return
+        channel?.invokeMethod("openRoute", route) ?: run { launchRoute = route }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName).setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
+        this.channel = channel
+        channel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "openUrl" -> result.success(openUrl(call.argument<String>("url") ?: ""))
                 "share" -> result.success(share(call.argument<String>("text") ?: ""))
                 "openFile" -> result.success(openFile(call.argument<String>("path") ?: "", call.argument<String>("mime") ?: "application/pdf"))
                 "pickFile" -> pickFile(result)
                 "location" -> location(result)
+                "openInApp" -> result.success(false)
+                "requestNotifications" -> requestNotifications(result)
+                "schedule" -> {
+                    Reminders.schedule(
+                        this,
+                        call.argument<Int>("id") ?: 0,
+                        call.argument<Number>("at")?.toLong() ?: 0L,
+                        call.argument<String>("title") ?: "Doctor Fresh",
+                        call.argument<String>("body") ?: "",
+                        call.argument<String>("route") ?: "",
+                    )
+                    result.success(true)
+                }
+                "cancel" -> {
+                    Reminders.cancel(this, call.argument<Int>("id") ?: 0)
+                    result.success(null)
+                }
+                "takeLaunchRoute" -> {
+                    result.success(launchRoute ?: "")
+                    launchRoute = null
+                }
                 else -> result.notImplemented()
             }
         }
@@ -175,8 +218,27 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /* --------------------------------------------------------- notifications */
+
+    private fun requestNotifications(result: MethodChannel.Result) {
+        if (android.os.Build.VERSION.SDK_INT < 33 ||
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        ) {
+            result.success(true)
+            return
+        }
+        pendingNotify?.success(false)
+        pendingNotify = result
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), notifyRequest)
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == notifyRequest) {
+            pendingNotify?.success(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+            pendingNotify = null
+            return
+        }
         if (requestCode != locationRequest) return
         if (hasLocationPermission()) readLocation() else finishLocation(mapOf("error" to "denied"))
     }

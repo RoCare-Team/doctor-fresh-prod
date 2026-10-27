@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'core/native.dart';
+import 'core/purifier.dart';
 import 'core/theme.dart';
 import 'screens/account_tab.dart';
 import 'screens/cart_screens.dart';
 import 'screens/categories_tab.dart';
 import 'screens/home_screen.dart';
+import 'screens/purifier_screen.dart';
 import 'screens/service_screens.dart';
 import 'state/app_state.dart';
 
@@ -44,6 +47,15 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     AppTabs.current.addListener(_changed);
+    PurifierStore.instance.load();
+    // A tapped reminder opens the screen it is about — now, or at launch.
+    Native.onRoute(_openRoute);
+    WidgetsBinding.instance.addPostFrameCallback((_) async => _openRoute(await Native.takeLaunchRoute()));
+  }
+
+  void _openRoute(String route) {
+    if (!mounted || route != PurifierStore.route) return;
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PurifierScreen()));
   }
 
   @override

@@ -420,7 +420,7 @@ class _GalleryState extends State<_Gallery> {
           const SizedBox(height: 8),
           Center(
             child: GestureDetector(
-              onTap: () => Native.open(p.videoUrl, context: context),
+              onTap: () => Native.openInApp(p.videoUrl, context: context),
               behavior: HitTestBehavior.opaque,
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 4),
@@ -942,7 +942,7 @@ class _TabsState extends State<_Tabs> {
 
   Widget _video(Product p) {
     return GestureDetector(
-      onTap: () => Native.open(p.videoUrl, context: context),
+      onTap: () => Native.openInApp(p.videoUrl, context: context),
       child: AspectRatio(
         aspectRatio: 16 / 9,
         child: Container(

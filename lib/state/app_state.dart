@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/api.dart';
 import '../core/format.dart';
@@ -164,6 +165,7 @@ class AppState extends ChangeNotifier {
     if (inCart(line.id)) return;
     line.qty = line.qty.clamp(1, line.maxQty);
     cart.add(line);
+    HapticFeedback.lightImpact();
     _saveCart();
     notifyListeners();
   }

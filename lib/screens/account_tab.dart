@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_tabs.dart';
+import '../core/api.dart';
 import '../core/config.dart';
 import '../core/native.dart';
 import '../core/theme.dart';
@@ -8,7 +9,10 @@ import '../router.dart';
 import '../state/app_state.dart';
 import '../widgets/forms.dart';
 import '../widgets/shell.dart';
+import '../widgets/ui.dart';
 import 'account_screens.dart';
+import 'purifier_screen.dart';
+import 'water_check_screen.dart';
 
 /// The Account tab: who is signed in, their orders and wishlist, help, and
 /// the pages the website keeps in its menu and footer (blog, stores,
@@ -119,6 +123,11 @@ class AccountTab extends StatelessWidget {
             ],
           ),
 
+          _Group(title: 'My water', tiles: [
+            _Tile(Icons.water_drop_outlined, 'My purifier & reminders', () => open(const PurifierScreen())),
+            _Tile(Icons.science_outlined, 'Water check (TDS guide)', () => open(const WaterCheckScreen())),
+          ]),
+
           _Group(title: 'My account', tiles: [
             _Tile(Icons.person_outline_rounded, 'Profile', () => open(const ProfileScreen())),
             _Tile(Icons.inventory_2_outlined, 'Order history', () => open(const ProfileScreen(initialTab: 1))),
@@ -143,10 +152,12 @@ class AccountTab extends StatelessWidget {
             _Tile(Icons.settings_input_component_outlined, 'Spare parts', () => link('/spare-parts')),
           ]),
 
-          if (state.legalPages.isNotEmpty)
-            _Group(title: 'Policies', tiles: [
-              for (final l in state.legalPages) _Tile(Icons.description_outlined, '${l['label']}', () => link('/legal/${l['slug']}')),
-            ]),
+          _Group(title: 'Policies', tiles: [
+            // The app's own policy, published on the website (the URL given to Google Play).
+            _Tile(
+                Icons.privacy_tip_outlined, 'Privacy policy', () => Native.openInApp(Config.url('/legal/app-privacy-policy'), context: context)),
+            for (final l in state.legalPages) _Tile(Icons.description_outlined, '${l['label']}', () => link('/legal/${l['slug']}')),
+          ]),
 
           if (user != null) ...[
             const SizedBox(height: 18),
@@ -171,6 +182,20 @@ class AccountTab extends StatelessWidget {
                   );
                   if (ok == true) await state.signOut();
                 },
+              ),
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: TextButton.icon(
+                onPressed: () => showDFSheet(
+                  context,
+                  title: 'Delete your account',
+                  subtitle: 'This cannot be undone.',
+                  builder: (_) => const _DeleteAccountForm(),
+                ),
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                label: const Text('Delete account'),
+                style: TextButton.styleFrom(foregroundColor: DF.ink400),
               ),
             ),
           ],
@@ -257,6 +282,89 @@ class _Group extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Deleting the account from the app (POST /api/account/delete): what goes
+/// and what is kept, a code to the registered number, then the deletion.
+class _DeleteAccountForm extends StatefulWidget {
+  const _DeleteAccountForm();
+
+  @override
+  State<_DeleteAccountForm> createState() => _DeleteAccountFormState();
+}
+
+class _DeleteAccountFormState extends State<_DeleteAccountForm> {
+  final otp = TextEditingController();
+  bool sent = false;
+  bool busy = false;
+  String? error;
+
+  Future<void> _send() async {
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    final res = await Api.instance.post('/api/account/delete', {'step': 'request'});
+    if (!mounted) return;
+    setState(() {
+      busy = false;
+      sent = res.ok;
+      error = res.ok ? null : res.error;
+    });
+  }
+
+  Future<void> _delete() async {
+    if (otp.text.trim().length < 4) return setState(() => error = 'Enter the code we sent you.');
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    final res = await Api.instance.post('/api/account/delete', {'otp': otp.text.trim()});
+    if (!mounted) return;
+    if (!res.ok) {
+      setState(() {
+        busy = false;
+        error = res.error;
+      });
+      return;
+    }
+    final state = AppScope.read(context);
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
+    await state.signOut();
+    AppTabs.current.value = AppTabs.home;
+    messenger.showSnackBar(const SnackBar(content: Text('Your account has been deleted.')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mobile = AppScope.of(context).user?.mobile ?? '';
+    const point = TextStyle(fontSize: 13.5, color: DF.ink500, height: 1.45);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('We will delete your profile, saved addresses, wishlist and sign-ins on all devices.', style: point),
+        const SizedBox(height: 6),
+        const Text('Orders and invoices are kept only as long as tax law requires. Reviews and comments stay without your name.',
+            style: point),
+        const SizedBox(height: 16),
+        if (!sent) ...[
+          if (error != null) ErrorNote(error!),
+          PrimaryButton('Send code to +91 $mobile', color: DF.danger, loading: busy, onPressed: _send),
+        ] else ...[
+          DFField(label: 'Code sent to +91 $mobile', controller: otp, keyboard: TextInputType.number, digitsOnly: true, maxLength: 6),
+          if (error != null) ErrorNote(error!),
+          PrimaryButton('Delete my account', color: DF.danger, loading: busy, onPressed: _delete),
+          TextButton(onPressed: busy ? null : _send, child: const Text('Send the code again')),
+        ],
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: () => Native.open(Config.url('/legal/delete-account'), context: context),
+          child: const Text('How account deletion works'),
+        ),
+      ],
     );
   }
 }

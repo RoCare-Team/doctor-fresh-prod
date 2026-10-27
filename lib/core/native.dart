@@ -7,9 +7,10 @@ import 'api.dart';
 import 'config.dart';
 
 /// The few things only the phone itself can do — open a link in the browser,
-/// dial, open WhatsApp, share, open a PDF, pick a file — through a platform
-/// channel implemented in MainActivity.kt (Android) and AppDelegate.swift
-/// (iOS). No plugin package is used.
+/// dial, open WhatsApp, share, open a PDF, pick a file, show a secure in-app
+/// page, schedule reminders — through a platform channel implemented in
+/// MainActivity.kt (Android) and AppDelegate.swift (iOS). No plugin package
+/// is used.
 class Native {
   static const _channel = MethodChannel('in.doctorfresh.app/native');
 
@@ -25,6 +26,75 @@ class Native {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Link copied: $url')));
     }
     return false;
+  }
+
+  /// Opens [url] on a sheet inside the app (SFSafariViewController on iOS,
+  /// the payment gateway's own page), and completes when the customer closes
+  /// it. Where there is no in-app sheet the link opens outside, as [open].
+  static Future<void> openInApp(String url, {BuildContext? context}) async {
+    try {
+      final ok = await _channel.invokeMethod<bool>('openInApp', {'url': url});
+      if (ok == true) return;
+    } catch (_) {}
+    if (context != null && !context.mounted) return;
+    // ignore: use_build_context_synchronously
+    await open(url, context: context);
+  }
+
+  /// Whether [openInApp] keeps the customer in the app (and so returns only
+  /// once the sheet is closed).
+  static bool get inAppSheets => Platform.isIOS;
+
+  /* ------------------------------------------------------------ reminders */
+
+  /// Asks for permission to show notifications. True when allowed.
+  static Future<bool> requestNotifications() async {
+    try {
+      return await _channel.invokeMethod<bool>('requestNotifications') == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// A local notification at [at], kept across restarts. [id] replaces an
+  /// earlier reminder with the same id; [route] is what the app opens when
+  /// the notification is tapped (see [takeLaunchRoute]).
+  static Future<bool> schedule({required int id, required DateTime at, required String title, required String body, String route = ''}) async {
+    try {
+      return await _channel.invokeMethod<bool>('schedule', {
+            'id': id,
+            'at': at.millisecondsSinceEpoch,
+            'title': title,
+            'body': body,
+            'route': route,
+          }) ==
+          true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> cancel(int id) async {
+    try {
+      await _channel.invokeMethod('cancel', {'id': id});
+    } catch (_) {}
+  }
+
+  /// Called with the screen a reminder asks for when it is tapped while the
+  /// app is open.
+  static void onRoute(void Function(String route) handler) {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'openRoute' && call.arguments is String) handler(call.arguments as String);
+    });
+  }
+
+  /// The screen a tapped notification asked for, once; empty when none.
+  static Future<String> takeLaunchRoute() async {
+    try {
+      return await _channel.invokeMethod<String>('takeLaunchRoute') ?? '';
+    } catch (_) {
+      return '';
+    }
   }
 
   static Future<void> call([String number = Config.phoneRaw]) => open('tel:$number');

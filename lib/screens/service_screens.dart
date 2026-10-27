@@ -1333,7 +1333,7 @@ class _ServiceCheckoutScreenState extends State<ServiceCheckoutScreen> {
 
     // Straight to the payment page; the booking is already written and sits
     // unpaid until the money arrives.
-    if (redirect.isNotEmpty) await Native.open(redirect, context: context);
+    if (redirect.isNotEmpty) await Native.openInApp(redirect, context: context);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => BookingDoneScreen(ref: ref)));
   }
@@ -2082,6 +2082,8 @@ class _BookingDoneScreenState extends State<BookingDoneScreen> with WidgetsBindi
     if (kept != null && (widget.ref.isEmpty || str(kept['ref']) == widget.ref)) {
       booking = Map<String, dynamic>.from(kept);
     }
+    // On iOS the payment sheet has already been closed by the time this shows.
+    back = Native.inAppSheets && _online;
   }
 
   @override
@@ -2204,7 +2206,9 @@ class _BookingDoneScreenState extends State<BookingDoneScreen> with WidgetsBindi
                   const SizedBox(height: 12),
                   if (paymentUrl.isNotEmpty) ...[
                     PrimaryButton('Pay now',
-                        icon: Icons.verified_user_outlined, height: 46, onPressed: () => Native.open(paymentUrl, context: context)),
+                        icon: Icons.verified_user_outlined, height: 46, onPressed: () => Native.openInApp(paymentUrl, context: context).then((_) {
+                              if (Native.inAppSheets && mounted) setState(() => back = true);
+                            })),
                     const SizedBox(height: 8),
                   ],
                   OutlineButton('Pay after the visit instead',
